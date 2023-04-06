@@ -15,8 +15,8 @@
 #'   \item{sex}{Patient's sex (measured at baseline)}
 #'   \item{age_grp}{Patient's age group (measured at baseline)}
 #'   \item{biomarker}{Patient's biomarker level (measured at "time")}
-#'   \item{treated_A}{Whether the patient is treated with treatment A}
-#'   \item{treated_B}{Whether the patient is treated with treatment B}
+#'   \item{treated}{Whether the patient is treated}
+#'   \item{treatment}{Which treatment}
 #'   \item{death}{Had the patient died by "time"}
 #'   ...
 #' }
