@@ -65,7 +65,9 @@ dat <- tibble(id = 1:500) %>%
   ) %>%
   group_by(id) %>%
   mutate(across(biomarker, ~.x*cumprod(biomarker_mult2))) %>%
-  ungroup() %>%
+  ungroup()
+
+dat <- dat %>%
   # TODO
   # for now, survival times unrelated to characteristics
   # update this later to introduce associations
@@ -100,7 +102,8 @@ dummydata <- dat %>%
       right = FALSE,
       dig.lab = 4
     ),
-    treated, treatment,
+    treated_A = if_else(treatment == "A" | is.na(treatment), treated, FALSE),
+    treated_B = if_else(treatment == "B" | is.na(treatment), treated, FALSE),
     death
   )
 
