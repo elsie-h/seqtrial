@@ -2,6 +2,11 @@
 
 library(tidyverse)
 
+# TODO
+# simulate better data
+# for now the dummy data is just so that the sequential trial code runs and finds some matches
+# survival times need updated to introduce associations with characteristics/treatment
+
 sex_levs <- c("F", "M")
 
 rbern <- function (n, p = 0.5) {
@@ -11,8 +16,8 @@ rbern <- function (n, p = 0.5) {
 set.seed(8765)
 dat <- tibble(id = 1:500) %>%
   mutate(
-    # number of months follow-up for each individual
-    n = 24, #rpois(n=nrow(.), lambda = 10),
+    # max months follow-up for each individual
+    n = 24,
     # baseline demographics
     age = floor(rnorm(n = nrow(.), mean = 60, sd = 10)),
     sex = factor(
@@ -22,10 +27,15 @@ dat <- tibble(id = 1:500) %>%
     # baseline biomarker level
     biomarker = rnorm(n = nrow(.), mean = 1000, sd = 200),
     # peoples biomarkers typically increasing slightly over time
-    biomarker_mult1 = rnorm(n = nrow(.), mean = 1.02, sd = 0.01)
+    biomarker_mult1 = rnorm(n = nrow(.), mean = 1.02, sd = 0.01),
+    # if the individual is treated, which treatment
+    # this is for sequential trials that compare two treatments rather
+    # than treated vs untreated
+    treatment = sample(x = c("A", "B"), replace = TRUE, size = nrow(.))
   ) %>%
   uncount(n, .id = "time") %>%
-  mutate(age = age + time%/%12) %>%
+  # don't bother updating age
+  # mutate(age = age + time%/%12) %>%
   mutate(biomarker_mult1 = rnorm(n = nrow(.), mean = biomarker_mult1, sd = 0.01)) %>%
   group_by(id) %>%
   mutate(across(biomarker, ~.x*cumprod(biomarker_mult1))) %>%
@@ -44,7 +54,8 @@ dat <- tibble(id = 1:500) %>%
   # FALSE in the last position replaces leading NAs with FALSE
   mutate(lag_treated = lag(treated, n=2, FALSE)) %>%
   ungroup() %>%
-  # treatment reduces biomarker with 2 month lag
+  mutate(across(treatment, ~if_else(treated, .x, NA_character_))) %>%
+  # treatment starts reducing biomarker with 2 month lag
   mutate(
     biomarker_mult2 = if_else(
       lag_treated,
@@ -55,31 +66,23 @@ dat <- tibble(id = 1:500) %>%
   group_by(id) %>%
   mutate(across(biomarker, ~.x*cumprod(biomarker_mult2))) %>%
   ungroup() %>%
-  # people accumulate more risk of dying while biomarker high
-  mutate(
-    risk = if_else(
-      biomarker > 1000,
-      rbern(n = nrow(.), p=0.7),
-      rbern(n = nrow(.), p=0.2)
-    )
+  # TODO
+  # for now, survival times unrelated to characteristics
+  # update this later to introduce associations
+  left_join(
+    dat %>%
+      distinct(id) %>%
+      mutate(survtime = ceiling(rweibull(n=nrow(.), shape=5, scale=24))),
+    by = "id"
   ) %>%
-  group_by(id) %>%
-  # risk accumulates
-  mutate(across(risk, ~cumsum(.x))) %>%
-  # also people censored
-  mutate(censor = rpois(n = 1, lambda = 30)) %>%
-  mutate(status = risk > 3) %>%
-  mutate(keep = cumsum(status) <= 1) %>%
-  ungroup() %>%
-  filter(keep & time <= censor)
-
+  filter(time <= survtime) %>%
+  mutate(death = if_else(time==survtime, TRUE, FALSE))
 
 # dat %>%
 #   ggplot(aes(x = time, y = biomarker, colour = status, group = id)) +
 #   geom_point(alpha = 0.2) +
 #   geom_line(alpha = 0.2) +
 #   facet_grid(rows = "treated")
-
 
 dummydata <- dat %>%
   transmute(
@@ -97,7 +100,8 @@ dummydata <- dat %>%
       right = FALSE,
       dig.lab = 4
     ),
-    death = status
+    treated, treatment,
+    death
   )
 
 usethis::use_data(dummydata, overwrite = TRUE)
