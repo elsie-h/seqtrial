@@ -17,7 +17,7 @@
 #'   \item{biomarker}{Patient's biomarker level (measured at "time")}
 #'   \item{treated}{Whether the patient is treated}
 #'   \item{treatment}{Which treatment}
-#'   \item{death}{had the patient died by "time"}
+#'   \item{death}{Had the patient died by "time"}
 #'   ...
 #' }
 "dummydata"
