@@ -97,7 +97,7 @@ dummydata <- dat %>%
       right = FALSE,
       dig.lab = 4
     ),
-    status
+    death = status
   )
 
 usethis::use_data(dummydata, overwrite = TRUE)
