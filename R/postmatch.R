@@ -17,14 +17,14 @@
 #' matchsuccess(seqtrial_example)
 matchsuccess <- function(seqtrial_obj) {
 
-  stopifnot("seqtrial_obj must have class \"seqtrial\"" = class("seqtrial_obj") == "seqtrial")
+  stopifnot("seqtrial_obj must have class \"seqtrial\"" = class(seqtrial_obj) == "seqtrial")
 
-  id_sym <- sym(seqtrial_obj$variable_names$id_var)
-  time_sym <- sym(seqtrial_obj$variable_names$time_var)
-  treated_sym <- sym(seqtrial_obj$variable_names$treated_var)
+  id_sym <- rlang::sym(seqtrial_obj$variable_names$id_var)
+  time_sym <- rlang::sym(seqtrial_obj$variable_names$time_var)
+  treated_sym <- rlang::sym(seqtrial_obj$variable_names$treated_var)
 
   # get all the times at which people initiate treatment
-  data_alltreated <- alltreated(id_sym, time_sym, treated_sym, data)
+  data_alltreated <- alltreated(id_sym, time_sym, treated_sym, seqtrial_obj$data)
 
   # created named character vector of variables to join by
   join_by_vars <- "trialstart"
@@ -37,7 +37,7 @@ matchsuccess <- function(seqtrial_obj) {
     dplyr::ungroup() %>%
     dplyr::left_join(
       seqtrial_obj$data_matched %>%
-        filter(!!treated_sym) %>%
+        dplyr::filter(!!treated_sym) %>%
         dplyr::group_by(trialstart) %>%
         dplyr::count(name="n_matched") %>%
         dplyr::ungroup(),
