@@ -24,6 +24,7 @@ seqtrial <- function(id_var,
                      data) {
 
   # TODO extend to datasets comparing two treatments, not just treatment vs no treatment
+  # TODO allow grouping dates for trials (e.g. data are daily, but trials are weekly)
 
   # check data is in correct format
   stopifnot("`data` must have class \"data.frame\"" = "data.frame" %in% class(data))
@@ -37,7 +38,8 @@ seqtrial <- function(id_var,
   stopifnot("`time_var` must be numeric" = is.numeric(data[[time_var]]))
   # check treated_var is logical
   stopifnot("`treated_var` must be logical" = is.logical(data[[treated_var]]))
-  # check matching_vars are factors (for now as only exact matching, but will extend to other matching techniques)
+  # check matching_vars are factors
+  # (for now as only exact matching, but will extend to other matching techniques)
   check_factors <- data %>%
     dplyr::select(dplyr::all_of(matching_vars)) %>%
     purrr::map_lgl(\(x) is.factor(x))
@@ -72,7 +74,9 @@ seqtrial <- function(id_var,
     dplyr::filter(!!treated_sym) %>%
     dplyr::arrange(!!id_sym, !!time_sym) %>%
     dplyr::group_by(!!id_sym) %>%
+    # slice is quicker than taking the min
     dplyr::slice(1) %>%
+    dplyr::ungroup() %>%
     dplyr::arrange(!!time_sym)
 
   # create empty objects for output
@@ -90,16 +94,16 @@ seqtrial <- function(id_var,
       dplyr::pull(!!id_sym)
 
     data_i <- data %>%
-      # only keep rows where time_var = trialstart
       dplyr::filter(!!time_sym == trialstart)
 
     # data for match candidates
     match_candidates_i <- dplyr::bind_rows(
-      # treated who initiated treatment on trialstart
+      # treated: people who initiated treatment on trialstart
       # (people can be treated if previously matched as a control)
       data_i %>%
         dplyr::filter(!!id_sym %in% treated_ids_i),
-      # control
+      # control: people who remained untreated on trialstart and have not been
+      # matched as a control in a previous trial
       data_i %>%
         dplyr::filter(!(!!treated_sym) & !(!!id_sym %in% previouslymatched_ids))
     )
@@ -107,6 +111,7 @@ seqtrial <- function(id_var,
     # create function to catch errors
     safely_matchit <- purrr::safely(MatchIt::matchit)
     # TODO in future allow user to specify matching options in seqtrial()
+    # TODO sort out message printing - no newline after matchit messages
     # run match algorithm
     obj_matchit_i <-
       safely_matchit(
