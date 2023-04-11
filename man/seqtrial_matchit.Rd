@@ -24,7 +24,7 @@ A list
 Perform matching according to the sequential trial approach for target trial emulation
 }
 \examples{
-seqtrial_matchit(
+seqtrial_example <- seqtrial_matchit(
 id_var ="id",
 time_var = "time",
 treated_var = "treated",
