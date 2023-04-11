@@ -1,4 +1,39 @@
-#' Format a dataset according to the sequential trial approach for observational data
+#' Get all times at which people initiate treatment
+#'
+#' @param id_sym A variable given as a symbol
+#' @param time_sym A variable given as a symbol
+#' @param treated_sym A variable given as a symbol
+#' @param data A data frame in which these variables exist. All variables must be in this data frame.
+#'
+#' @return A data frame
+#'
+#' @examples
+#' alltreated(
+#' id_var ="id",
+#' time_var = "time",
+#' treated_var = "treated",
+#' data = dummydata
+#' )
+alltreated <- function(id_sym,
+                       time_sym,
+                       treated_sym,
+                       data) {
+
+  # get all the times at which people initiate treatment
+  data_alltreated <- data %>%
+    dplyr::filter(!!treated_sym) %>%
+    dplyr::arrange(!!id_sym, !!time_sym) %>%
+    dplyr::group_by(!!id_sym) %>%
+    # slice is quicker than taking the min
+    dplyr::slice(1) %>%
+    dplyr::ungroup() %>%
+    dplyr::arrange(!!time_sym)
+
+  return(data_alltreated)
+
+}
+
+#' Perform matching according to the sequential trial approach for target trial emulation
 #'
 #' @param id_var A variable given as a character vector.
 #' @param time_var A variable given as a character vector.
@@ -10,18 +45,18 @@
 #' @export
 #'
 #' @examples
-#' seqtrial(
+#' seqtrial_example <- seqtrial_matchit(
 #' id_var ="id",
 #' time_var = "time",
 #' treated_var = "treated",
 #' matching_vars = c("age_grp", "biomarker", "sex"),
 #' data = dummydata
 #' )
-seqtrial <- function(id_var,
-                     time_var,
-                     treated_var,
-                     matching_vars,
-                     data) {
+seqtrial_matchit <- function(id_var,
+                             time_var,
+                             treated_var,
+                             matching_vars,
+                             data) {
 
   # TODO extend to datasets comparing two treatments, not just treatment vs no treatment
   # TODO allow grouping dates for trials (e.g. data are daily, but trials are weekly)
@@ -70,14 +105,7 @@ seqtrial <- function(id_var,
   treated_sym <- rlang::sym(treated_var)
 
   # get all the times at which people initiate treatment
-  alltreated <- data %>%
-    dplyr::filter(!!treated_sym) %>%
-    dplyr::arrange(!!id_sym, !!time_sym) %>%
-    dplyr::group_by(!!id_sym) %>%
-    # slice is quicker than taking the min
-    dplyr::slice(1) %>%
-    dplyr::ungroup() %>%
-    dplyr::arrange(!!time_sym)
+  data_alltreated <- alltreated(id_sym, time_sym, treated_sym, data)
 
   # create empty objects for output
   data_successfulmatches <- list()
@@ -85,11 +113,11 @@ seqtrial <- function(id_var,
 
   message("Sequential trials matching report:")
 
-  for (trialstart in unique(alltreated[[time_var]])) {
+  for (trialstart in unique(data_alltreated[[time_var]])) {
 
     message("---- ", time_var, " = ", trialstart, " ----")
 
-    treated_ids_i <- alltreated %>%
+    treated_ids_i <- data_alltreated %>%
       dplyr::filter(!!time_sym == trialstart) %>%
       dplyr::pull(!!id_sym)
 
@@ -150,7 +178,7 @@ seqtrial <- function(id_var,
         values_from=id,
       ) %>%
       dplyr::left_join(
-        alltreated %>% dplyr::select(id, controlistreated = !!time_sym),
+        data_alltreated %>% dplyr::select(id, controlistreated = !!time_sym),
         by = c("control_id" = "id")
       )
 
@@ -172,24 +200,6 @@ seqtrial <- function(id_var,
     }
   }
 
-  # print matching success
-  matchingsuccess <- alltreated %>%
-    dplyr::group_by(!!time_sym) %>%
-    dplyr::count(name="n_treated") %>%
-    dplyr::ungroup() %>%
-    dplyr::left_join(
-      data_successfulmatches %>%
-        dplyr::group_by(trialstart) %>%
-        dplyr::count(name="n_matched") %>%
-        dplyr::ungroup() %>%
-        dplyr::rename(!!time_sym := trialstart),
-      by = time_var
-    ) %>%
-    dplyr::mutate(
-      n_matched = tidyr::replace_na(n_matched, 0),
-      n_unmatched = n_treated - n_matched
-    )
-
   data_matched <- data_successfulmatches %>%
     tidyr::pivot_longer(
       cols = names(group_labels),
@@ -205,9 +215,17 @@ seqtrial <- function(id_var,
     )
 
   out <- list(
-    "matchingsuccess" = matchingsuccess,
-    "data_matched" = data_matched
+    "data_matched" = data_matched,
+    variable_names = list(
+      "id_var" = id_var,
+      "time_var" = time_var,
+      "treated_var" = treated_var,
+      "matching_vars" = matching_vars
+    ),
+    "data" = data
   )
+
+  class(out) <- "seqtrial"
 
   return(out)
 
