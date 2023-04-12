@@ -1,26 +1,9 @@
-#' Get all times at which people initiate treatment
-#'
-#' @param id_sym A variable given as a symbol
-#' @param time_sym A variable given as a symbol
-#' @param treated_sym A variable given as a symbol
-#' @param data A data frame in which these variables exist. All variables must be in this data frame.
-#'
-#' @return A data frame
-#' @export
-#'
-#' @examples
-#' alltreated(
-#' id_sym ="id",
-#' time_sym = "time",
-#' treated_sym = "treated",
-#' data = dummydata
-#' )
+# get all the times at which people initiate treatment
 alltreated <- function(id_sym,
                        time_sym,
                        treated_sym,
                        data) {
 
-  # get all the times at which people initiate treatment
   data_alltreated <- data %>%
     dplyr::filter(!!treated_sym) %>%
     dplyr::arrange(!!id_sym, !!time_sym) %>%
