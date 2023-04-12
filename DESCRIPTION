@@ -17,4 +17,5 @@ Imports:
     MatchIt,
     magrittr,
     purrr,
-    rlang
+    rlang,
+    tidyr
