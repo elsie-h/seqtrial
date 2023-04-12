@@ -17,6 +17,186 @@ alltreated <- function(id_sym,
 
 }
 
+#' Formatting a dataset for the sequential trials approach
+#'
+#' @param id_var The id variable given as a character vector.
+#' @param time_var The time variable given as a character vector. Must be a numeric variable.
+#' @param treated_var TODO
+#' @param treatment_var The treatment variable given as a character vector. Must be NA before treatment initiated.
+#' @param treatment_val A value to define the treated group. Must be one of the unique values in treated_var.
+#' @param matching_vars The matching variables given as a character vector. Must be a factor variable.
+#' @param other_vars TODO
+#' @param data A data frame in which these variables exist. All variables must be in this data frame.
+#'
+#' @return A data frame with class "seqtrial_fmt"
+#' @export
+#'
+#' @examples
+#' seqtrial_example <- seqtrial_formatter(
+#' id_var ="id",
+#' time_var = "time",
+#' treated_var = "treated",
+#' treatment_var = "treatment",
+#' treatment_val = "A",
+#' matching_vars = c("age_grp", "biomarker", "sex"),
+#' other_vars = NULL,
+#' data = dummydata
+#' )
+seqtrial_formatter <- function(id_var,
+                               time_var,
+                               treated_var, # 0 until treatment initiation, 1 at all timepoints after
+                               treatment_var = NULL, # var specifying type of treatment. If NULL assume treated vs control
+                               treatment_val = NULL, # the value of the treatment variable to be coded as 1 (all other values coded as 0)
+                               matching_vars,
+                               other_vars = NULL, # other variables that might be used when assessing balance across matched groups, or as covariates in models
+                               data) {
+
+  # TODO allow grouping dates for trials (e.g. data are daily, but trials are weekly)
+
+  # create symbols for programming
+  id_sym <- rlang::sym(id_var)
+  time_sym <- rlang::sym(time_var)
+  treated_sym <- rlang::sym(treated_var)
+  treatment_sym <- rlang::sym(treatment_var)
+
+  stopifnot(
+    "`data` must have class \"data.frame\"" =
+      "data.frame" %in% class(data)
+    )
+
+  all_vars <- c(id_var, time_var, treated_var, treatment_var, matching_vars, other_vars)
+
+  stopifnot(
+    "All supplied vars must be in `data`" =
+      all(all_vars %in% names(data))
+  )
+
+  # TODO (extend to handle dates for time_var)
+  stopifnot(
+    "`time_var` must be numeric" =
+      is.numeric(data[[time_var]])
+    )
+
+  stopifnot(
+    "`treated_var` must have two unique values that can be coerced to ingeter values 0 and 1" =
+      all(as.integer(unique(data[[treated_var]])) == c(0,1))
+    )
+
+  # treated_var can be 0 or 1 throughout, or switch from 0 to 1, but not from 1 to 0
+  treatment_stopped <- data %>%
+    dplyr::group_by(!!id_sym) %>%
+    dplyr::mutate(treated_diff = c(NA_integer_, diff(as.integer(treated)))) %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(treated_diff < 0) %>%
+    nrow()
+  stopifnot(
+    "Treatment may be initiated once, then must be continued for the remainder of followup" =
+      treatment_stopped == 0
+  )
+
+
+  stopifnot(
+    "If one of `treatment_var` and `treatment_val` specified, both must be specified." =
+      is.null(treatment_var) == is.null(treatment_val)
+  )
+
+  if (!is.null(treated_var)) {
+
+    treatment_var_levs <- unique((data[[treatment_var]]))
+    stopifnot(
+      "`treatment_var` must have at least two unique values that are non-missing." =
+        length(treatment_var_levs[!is.na(treatment_var_levs)]) >= 2
+    )
+    stopifnot(
+      "`treatment_val` must have length 1." =
+        length(treatment_val) == 1
+    )
+    stopifnot(
+      "`treatment_val` must be coerced to a value in `treatment_var`." =
+        treatment_val %in% treatment_var_levs
+    )
+
+    treatment_when_untreated <- data %>%
+      dplyr::filter(
+        (as.integer(!!treated_sym) == 0L) & !is.na(!!treatment_sym)
+        ) %>%
+      nrow()
+      stopifnot(
+        "`treatment_var` must be missing when `treated_var` is 0." =
+          treatment_when_untreated == 0
+      )
+
+      multiple_treatments <- data %>%
+        dplyr::filter(as.integer(!!treated_sym) == 0L) %>%
+        dplyr::group_by(!!id_sym) %>%
+        dplyr::distinct(!!treatment_sym) %>%
+        dplyr::count() %>%
+        dplyr::ungroup() %>%
+        dplyr::filter(n>1)
+      stopifnot(
+        "Once treatment is intiated, `treatment_var` can only take one value per individual." =
+          multiple_treatments == 0
+      )
+
+  }
+
+  # check matching_vars are factors
+  # (for now as only exact matching, but will extend to other matching techniques)
+  check_factors <- data %>%
+    dplyr::select(dplyr::all_of(matching_vars)) %>%
+    purrr::map_lgl(\(x) is.factor(x))
+  if (!all(check_factors)) {
+    stop(
+      paste0(
+        paste(names(check_factors)[!check_factors], collapse = " and "),
+        " are not factors."
+      )
+    )
+  }
+
+
+  # check for missing values
+  check_missing <- data %>%
+    dplyr::select(dplyr::all_of(c(id_var, time_var, treated_var, matching_vars))) %>%
+    purrr::map_lgl(\(x) any(is.na(x)))
+  if (any(check_missing)) {
+    stop(
+      paste0(
+        "Missing values in ",
+        paste(names(check_missing)[check_missing], collapse = " and "),
+        "."
+      )
+    )
+  }
+
+  names_map <- list(
+    "id" = id_var,
+    "time" = time_var,
+    "treated" = treated_var,
+    "treatment" = treatment_var
+  )
+
+  # only keep the specified variables and rename
+  data <- data %>%
+    dplyr::select(dplyr::all_of(all_vars)) %>%
+    dplyr::rename(
+      "id" = !!rlang::sym(names_map$id),
+      "time" = !!rlang::sym(names_map$time),
+      "treated" = !!rlang::sym(names_map$treated),
+      "treatment" = !!rlang::sym(names_map$treatment)
+    ) %>%
+    dplyr::mutate(dplyr::across(treated, as.integer))
+
+  attributes(data)$names_map <- unlist(names_map) # for reverting to original names in seqtrial_unformatter
+  attributes(data)$treatment_val <- treatment_val
+
+  class(data) <- append(class(data), "seqtrial_fmt")
+
+  return(data)
+
+}
+
+
 #' Perform matching according to the sequential trial approach for target trial emulation
 #'
 #' @param id_var A variable given as a character vector.
@@ -25,7 +205,7 @@ alltreated <- function(id_sym,
 #' @param matching_vars A variable given as a character vector.
 #' @param data A data frame in which these variables exist. All variables must be in this data frame.
 #'
-#' @return A list
+#' @return A data frame with class
 #' @export
 #'
 #' @examples
@@ -36,57 +216,11 @@ alltreated <- function(id_sym,
 #' matching_vars = c("age_grp", "biomarker", "sex"),
 #' data = dummydata
 #' )
-seqtrial_matchit <- function(id_var,
-                             time_var,
-                             treated_var,
-                             matching_vars,
-                             data) {
+seqtrial_matchit <- function(data) {
 
-  # TODO extend to datasets comparing two treatments, not just treatment vs no treatment
-  # TODO allow grouping dates for trials (e.g. data are daily, but trials are weekly)
 
-  # check data is in correct format
-  stopifnot("`data` must have class \"data.frame\"" = "data.frame" %in% class(data))
-  # check supplied variables are in `data`
-  all_vars <- c(id_var, time_var, treated_var, matching_vars)
-  stopifnot("All supplied vars must be in `data`" = all(all_vars %in% names(data)))
-  # check id_var is numeric (double or integer)
-  stopifnot("`id_var` must be numeric" = is.numeric(data[[id_var]]))
-  # check time_var is numeric (double or integer)
-  # TODO (extend to handle dates)
-  stopifnot("`time_var` must be numeric" = is.numeric(data[[time_var]]))
-  # check treated_var is logical
-  stopifnot("`treated_var` must be logical" = is.logical(data[[treated_var]]))
-  # check matching_vars are factors
-  # (for now as only exact matching, but will extend to other matching techniques)
-  check_factors <- data %>%
-    dplyr::select(dplyr::all_of(matching_vars)) %>%
-    purrr::map_lgl(\(x) is.factor(x))
-  if (!all(check_factors)) {
-    stop(
-      paste0(
-        paste(names(check_factors)[!check_factors], collapse = " and "),
-        " are not factors"
-      )
-    )
-  }
-  # only keep the specified variables
-  data <- data %>% dplyr::select(dplyr::all_of(all_vars))
-  # check for missing values
-  check_missing <- data %>% purrr::map_lgl(\(x) any(is.na(x)))
-  if (any(check_missing)) {
-    stop(
-      paste0(
-        paste(names(check_missing)[check_missing], collapse = " and "),
-        " have missing data"
-      )
-    )
-  }
 
-  # create symbols for programming
-  id_sym <- rlang::sym(id_var)
-  time_sym <- rlang::sym(time_var)
-  treated_sym <- rlang::sym(treated_var)
+
 
   # get all the times at which people initiate treatment
   data_alltreated <- alltreated(id_sym, time_sym, treated_sym, data)
