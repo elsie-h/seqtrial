@@ -23,9 +23,9 @@ Get all times at which people initiate treatment
 }
 \examples{
 alltreated(
-id_var ="id",
-time_var = "time",
-treated_var = "treated",
+id_sym ="id",
+time_sym = "time",
+treated_sym = "treated",
 data = dummydata
 )
 }
