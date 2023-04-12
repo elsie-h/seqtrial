@@ -14,5 +14,6 @@ Depends:
 LazyData: true
 Imports: 
     data.table,
+    MatchIt,
     magrittr,
     rlang
