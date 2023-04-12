@@ -6,6 +6,7 @@
 #' @param data A data frame in which these variables exist. All variables must be in this data frame.
 #'
 #' @return A data frame
+#' @export
 #'
 #' @examples
 #' alltreated(
