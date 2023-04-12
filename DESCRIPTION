@@ -1,5 +1,5 @@
 Package: seqtrial
-Title: Implementing the sequential trial approach for observational studies
+Title: Implementing the Sequential Trial Approach for Observational Studies
 Version: 0.0.0.9000
 Authors@R: 
     person("Elsie", "Horne", , "elsiehorne@gmail.com", role = c("aut", "cre"),
