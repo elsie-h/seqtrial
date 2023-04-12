@@ -4,7 +4,7 @@
 \name{seqtrial-package}
 \alias{seqtrial}
 \alias{seqtrial-package}
-\title{seqtrial: Implementing the sequential trial approach for observational studies}
+\title{seqtrial: Implementing the Sequential Trial Approach for Observational Studies}
 \description{
 What the package does (one paragraph).
 }
