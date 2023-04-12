@@ -16,4 +16,5 @@ Imports:
     data.table,
     MatchIt,
     magrittr,
+    purrr,
     rlang
