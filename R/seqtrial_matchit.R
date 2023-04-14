@@ -1,63 +1,64 @@
-# get all the times at which people initiate treatment
-alltreated <- function(id_sym,
-                       time_sym,
-                       treated_sym,
-                       data) {
-
-  data_alltreated <- data %>%
-    dplyr::filter(!!treated_sym) %>%
-    dplyr::arrange(!!id_sym, !!time_sym) %>%
-    dplyr::group_by(!!id_sym) %>%
-    # slice is quicker than taking the min
-    dplyr::slice(1) %>%
-    dplyr::ungroup() %>%
-    dplyr::arrange(!!time_sym)
-
-  return(data_alltreated)
-
-}
-
 #' Formatting a dataset for the sequential trials approach
 #'
 #' @param id_var The id variable given as a character vector.
 #' @param time_var The time variable given as a character vector. Must be a numeric variable.
-#' @param treated_var TODO
-#' @param treatment_var The treatment variable given as a character vector. Must be NA before treatment initiated.
-#' @param treatment_val A value to define the treated group. Must be one of the unique values in treated_var.
-#' @param matching_vars The matching variables given as a character vector. Must be a factor variable.
-#' @param other_vars TODO
+#' @param treated_var The variable indicating the time of treatment initiation. Must be coercible to 0 / 1. Takes the value 0 until the time of treatment initiation, and 1 on and after the time of treatment initiation.
+#' @param treatment_var The treatment variable given as a character vector. Must be NA before treatment initiated. Must be NULL if comparison is treated / untreated.
+#' @param treatment_vals Values to define the treatment groups in a "treatment A vs treatment B" comparison. Must match the nonmissing values in treated_var. Must be NULL if treatment_var is NULL.
+#' @param matching_vars The matching variables given as a character vector. Must be factor variables (this will be updated when matching strategies extended).
+#' @param other_vars Other variables that may be used as covariates in the model or to assess the balance after matching. Can be NULL.
+#' @param censor_vars Censoring variables given as a character vector. Variables must be coercible to 0 / 1, taking the value 0 before the censoring event and 1 at the time of the event. Only the first occurrence of the event will be used, so it does not matter whether the value returns to 0 after the event, or remains at 1.
+#' @param outcome_vars Outcome variables given as a character vector. Must specify at least one outcome variable. Variables must be coercible to 0 / 1, taking the value 0 before the outcome event and 1 at the time of the event. Only the first occurrence of the event will be used, so it does not matter whether the value returns to 0 after the event, or remains at 1.
 #' @param data A data frame in which these variables exist. All variables must be in this data frame.
 #'
 #' @return A data frame with class "seqtrial_fmt"
 #' @export
 #'
 #' @examples
-#' seqtrial_example <- seqtrial_formatter(
+#' data("dummydata")
+#'
+#' # for treated vs untreated comparison
+#' data_seqtrial_tu <- seqtrial_formatter(
+#' id_var ="id",
+#' time_var = "time",
+#' treated_var = "treated",
+#' matching_vars = c("age_grp", "biomarker", "sex"),
+#' other_vars = NULL,
+#' censor_vars = NULL,
+#' outcome_vars = death,
+#' data = dummydata
+#' )
+#'
+#' # for treatment A vs treatment B comparison
+#' data_seqtrial_ab <- seqtrial_formatter(
 #' id_var ="id",
 #' time_var = "time",
 #' treated_var = "treated",
 #' treatment_var = "treatment",
-#' treatment_val = "A",
+#' treatment_vals = c("A", "B"),
 #' matching_vars = c("age_grp", "biomarker", "sex"),
 #' other_vars = NULL,
 #' data = dummydata
 #' )
 seqtrial_formatter <- function(id_var,
                                time_var,
-                               treated_var, # 0 until treatment initiation, 1 at all timepoints after
-                               treatment_var = NULL, # var specifying type of treatment. If NULL assume treated vs control
-                               treatment_val = NULL, # the value of the treatment variable to be coded as 1 (all other values coded as 0)
+                               treated_var,
+                               treatment_var = NULL,
+                               treatment_vals = NULL,
                                matching_vars,
-                               other_vars = NULL, # other variables that might be used when assessing balance across matched groups, or as covariates in models
+                               other_vars = NULL,
+                               censor_vars = NULL, # TODO add a censor var to dummydata so this can be tested
+                               outcome_vars,
                                data) {
 
-  # TODO allow grouping dates for trials (e.g. data are daily, but trials are weekly)
+  # TODO handle censoring and outcome variables
 
   # create symbols for programming
   id_sym <- rlang::sym(id_var)
   time_sym <- rlang::sym(time_var)
   treated_sym <- rlang::sym(treated_var)
-  treatment_sym <- rlang::sym(treatment_var)
+  treatment_sym <- NULL
+  if (!is.null(treatment_var)) treatment_sym <- rlang::sym(treatment_var)
 
   stopifnot(
     "`data` must have class \"data.frame\"" =
@@ -96,24 +97,24 @@ seqtrial_formatter <- function(id_var,
 
 
   stopifnot(
-    "If one of `treatment_var` and `treatment_val` specified, both must be specified." =
-      is.null(treatment_var) == is.null(treatment_val)
+    "If one of `treatment_var` and `treatment_vals` specified, both must be specified." =
+      is.null(treatment_var) == is.null(treatment_vals)
   )
 
-  if (!is.null(treated_var)) {
+  if (!is.null(treatment_var)) {
 
     treatment_var_levs <- unique((data[[treatment_var]]))
     stopifnot(
-      "`treatment_var` must have at least two unique values that are non-missing." =
+      "`treatment_var` must have two unique non-missing values." =
         length(treatment_var_levs[!is.na(treatment_var_levs)]) >= 2
     )
     stopifnot(
-      "`treatment_val` must have length 1." =
-        length(treatment_val) == 1
+      "`treatment_vals` must have length 2." =
+        length(treatment_vals) == 2
     )
     stopifnot(
-      "`treatment_val` must be coerced to a value in `treatment_var`." =
-        treatment_val %in% treatment_var_levs
+      "`treatment_vals` must be coerced to values in `treatment_var`." =
+        all(treatment_vals %in% treatment_var_levs)
     )
 
     treatment_when_untreated <- data %>%
@@ -180,92 +181,181 @@ seqtrial_formatter <- function(id_var,
   data <- data %>%
     dplyr::select(dplyr::all_of(all_vars)) %>%
     dplyr::rename(
-      "id" = !!rlang::sym(names_map$id),
-      "time" = !!rlang::sym(names_map$time),
-      "treated" = !!rlang::sym(names_map$treated),
-      "treatment" = !!rlang::sym(names_map$treatment)
+      "id" = !!id_sym,
+      "time" = !!time_sym,
+      "treated" = !!treated_sym,
+      "treatment" = !!treatment_sym
     ) %>%
     dplyr::mutate(dplyr::across(treated, as.integer))
 
   attributes(data)$names_map <- unlist(names_map) # for reverting to original names in seqtrial_unformatter
-  attributes(data)$treatment_val <- treatment_val
+  attributes(data)$comparison <- ifelse(is.null(treatment_var), "treated vs untreated", "treatment A vs treatment B")
+  attributes(data)$treatment_vals <- treatment_vals
+  attributes(data)$matching_vars <- matching_vars
+  attributes(data)$other_vars <- other_vars
 
-  class(data) <- append(class(data), "seqtrial_fmt")
+  if (attributes(data)$comparison == "treatment A vs treatment B") {
+    data <- data %>%
+      dplyr::filter(treated == 1)
+  }
+
+  data <- data %>%
+    # use tibble::new_tibble() otherwise dplyr functions applied to data fail
+    tibble::new_tibble(class = "seqtrial_fmt")
 
   return(data)
 
 }
 
+seqtrial_fmt_checks <- function(data) {
+
+  stopifnot(
+    "`data` must have class \"seqtrial_fmt\"" =
+      "seqtrial_fmt" %in% class(data)
+  )
+
+  vars <- c("id", "time", "treated")
+  if ("treatment_vals" %in% names(attributes(data))) {
+    vars <- c(vars, "treatment")
+  }
+
+  error_message <- paste0("`data` must contain the following columns: ", paste0(vars, collapse = ", "))
+  stopifnot(
+    error_message =
+      all(vars %in% names(data))
+  )
+
+}
+
+# get all the times at which people initiate treatment
+treatment_initiation_times <- function(data) {
+
+  seqtrial_fmt_checks(data)
+
+  vars <- c("id", "time", "treated")
+  if ("treatment_vals" %in% names(attributes(data))) {
+    vars <- c(vars, "treatment")
+  }
+
+  data_reatment_initiation_times <- data %>%
+    dplyr::filter(treated == 1) %>%
+    dplyr::arrange(id, time) %>%
+    dplyr::group_by(id) %>%
+    # slice is quicker than taking the min
+    dplyr::slice(1) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(all_of(vars)) %>%
+    dplyr::arrange(time)
+
+  return(data_reatment_initiation_times)
+
+}
 
 #' Perform matching according to the sequential trial approach for target trial emulation
 #'
-#' @param id_var A variable given as a character vector.
-#' @param time_var A variable given as a character vector.
-#' @param treated_var A variable given as a character vector.
-#' @param matching_vars A variable given as a character vector.
-#' @param data A data frame in which these variables exist. All variables must be in this data frame.
+#' @param data A data frame with class "seqtrial_fmt".
 #'
-#' @return A data frame with class
+#' @return A data frame with class "seqtrial_matched_fmt"
 #' @export
 #'
 #' @examples
-#' seqtrial_example <- seqtrial_matchit(
+#' data("dummydata")
+#'
+#' # for treated vs untreated comparison
+#' data_seqtrial_tu <- seqtrial_formatter(
 #' id_var ="id",
 #' time_var = "time",
 #' treated_var = "treated",
 #' matching_vars = c("age_grp", "biomarker", "sex"),
+#' other_vars = NULL,
 #' data = dummydata
 #' )
+#' data_seqtrial_tu_matched <- seqtrial_matchit(data_seqtrial_tu)
+#'
+#' # for treatment A vs treatment B comparison
+#' data_seqtrial_ab <- seqtrial_formatter(
+#' id_var ="id",
+#' time_var = "time",
+#' treated_var = "treated",
+#' treatment_var = "treatment",
+#' treatment_vals = c("A", "B"),
+#' matching_vars = c("age_grp", "biomarker", "sex"),
+#' other_vars = NULL,
+#' data = dummydata
+#' )
+#' data_seqtrial_ab_matched <- seqtrial_matchit(data_seqtrial_ab)
 seqtrial_matchit <- function(data) {
 
+  # TODO allow grouping dates for trials (e.g. data are daily, but trials are weekly)
 
-
-
+  seqtrial_fmt_checks(data)
 
   # get all the times at which people initiate treatment
-  data_alltreated <- alltreated(id_sym, time_sym, treated_sym, data)
+  data_treatment_initiation_times <- treatment_initiation_times(data)
 
   # create empty objects for output
-  data_successfulmatches <- list()
-  previouslymatched_ids <- vector(mode = mode(data[[id_var]]), length=0)
+  data_successful_matches <- list()
+  previously_matched_ids <- vector(mode = mode(data$id), length=0)
+
+  # create function to catch errors
+  safely_matchit <- purrr::safely(MatchIt::matchit)
 
   message("Sequential trials matching report:")
 
-  for (trialstart in unique(data_alltreated[[time_var]])) {
+  for (trial_start in unique(data_treatment_initiation_times$time)) {
 
-    message("---- ", time_var, " = ", trialstart, " ----")
+    message("---- time = ", trial_start, " ----")
 
-    treated_ids_i <- data_alltreated %>%
-      dplyr::filter(!!time_sym == trialstart) %>%
-      dplyr::pull(!!id_sym)
+    treated_ids_i <- data_treatment_initiation_times %>%
+      dplyr::filter(time == trial_start) %>%
+      dplyr::pull(id)
 
     data_i <- data %>%
-      dplyr::filter(!!time_sym == trialstart)
+      dplyr::filter(time == trial_start)
 
-    # data for match candidates
-    match_candidates_i <- dplyr::bind_rows(
-      # treated: people who initiated treatment on trialstart
-      # (people can be treated if previously matched as a control)
-      data_i %>%
-        dplyr::filter(!!id_sym %in% treated_ids_i),
-      # control: people who remained untreated on trialstart and have not been
-      # matched as a control in a previous trial
-      data_i %>%
-        dplyr::filter(!(!!treated_sym) & !(!!id_sym %in% previouslymatched_ids))
-    )
+    if (attributes(data)$comparison == "treated vs untreated") {
 
-    # create function to catch errors
-    safely_matchit <- purrr::safely(MatchIt::matchit)
+      # data for match candidates
+      match_candidates_i <- dplyr::bind_rows(
+        # treated: people who initiated treatment on trial_start
+        # (people can be treated if previously matched as a control)
+        data_i %>%
+          dplyr::filter(id %in% treated_ids_i),
+        # untreated: people who remained untreated on trial_start and have not been
+        # matched as untreated in a previous trial
+        data_i %>%
+          dplyr::filter(!(treated | id %in% previously_matched_ids))
+      )
+
+      group_var <- "treated"
+      group_var_labels <- c("untreated" = 0, "treated" = 1)
+
+    }
+
+    if (attributes(data)$comparison == "treatment A vs treatment B") {
+
+      match_candidates_i <- data_i %>%
+        dplyr::mutate(across(
+          treatment,
+          ~as.integer(.x == attributes(data)$treatment_vals[2])
+          ))
+
+      group_var <- "treatment"
+      group_var_labels <- c(0, 1) # in formatter, define treatment A and treatment B
+      names(group_var_labels) <- attributes(data)$treatment_vals
+
+    }
+
     # TODO in future allow user to specify matching options in seqtrial()
     # TODO sort out message printing - no newline after matchit messages
     # run match algorithm
     obj_matchit_i <-
       safely_matchit(
-        formula = stats::as.formula(paste0(treated_var, " ~ 1")),
+        formula = stats::as.formula(paste0(group_var, " ~ 1")),
         data = match_candidates_i,
         replace = FALSE,
         estimand = "ATT",
-        exact = matching_vars,
+        exact = attributes(data)$matching_vars,
         m.order = "random",
         # verbose = TRUE,
         ratio = 1L # 1:1 match
@@ -276,75 +366,80 @@ seqtrial_matchit <- function(data) {
       next
     }
 
-    group_labels <- c("control_id" = 0, "treated_id" = 1)
-
-    data_successfulmatches[[as.character(trialstart)]] <- dplyr::tibble(
-      !!id_sym := match_candidates_i[[id_var]],
+    data_successful_matches[[as.character(trial_start)]] <- dplyr::tibble(
+      id = match_candidates_i$id,
       matched = !is.na(obj_matchit_i$subclass),
       match_id = as.integer(as.character(obj_matchit_i$subclass)),
-      !!treated_sym := obj_matchit_i$treat,
+      group = obj_matchit_i$treat,
       weight = obj_matchit_i$weights,
-      trialstart = trialstart,
+      trial_start = trial_start,
     ) %>%
       dplyr::filter(matched) %>%
       dplyr::mutate(dplyr::across(
-        !!treated_sym,
-        \(x) factor(x, levels = unname(group_labels), labels = names(group_labels))
+        group,
+        ~ factor(.x, levels = unname(group_var_labels), labels = names(group_var_labels))
         )) %>%
+      dplyr::arrange(group) %>%
       tidyr::pivot_wider(
-        names_from = !!treated_sym,
-        values_from=id,
-      ) %>%
-      dplyr::left_join(
-        data_alltreated %>% dplyr::select(id, controlistreated = !!time_sym),
-        by = c("control_id" = "id")
+        names_from = group,
+        values_from = id,
       )
 
-    # ids for individuals matched as a control in all trials so far
-    previouslymatched_ids <- c(
-      previouslymatched_ids,
-      data_successfulmatches[[as.character(trialstart)]]$control_id
+    if (attributes(data)$comparison == "treated vs untreated") {
+
+      data_successful_matches[[as.character(trial_start)]] <-
+        data_successful_matches[[as.character(trial_start)]] %>%
+        dplyr::left_join(
+          data_treatment_initiation_times %>%
+            dplyr::select(id, untreated_is_treated_time = time),
+          by = c("untreated" = "id")
+        )
+
+      # ids for individuals matched as a untreated in all trials so far
+      previously_matched_ids <- c(
+        previously_matched_ids,
+        data_successful_matches[[as.character(trial_start)]]$untreated
       )
+
+    }
 
   }
 
   # currently a list with a dataset for each trial, bind into one dataset
-  data_successfulmatches <- dplyr::bind_rows(data_successfulmatches)
+  data_successful_matches <- dplyr::bind_rows(data_successful_matches)
 
-  # check for duplicates in control_id and treated_id
-  for (i in names(group_labels)) {
-    if (any(duplicated(data_successfulmatches[[i]]))) {
-      stop("Duplicate values in ", i)
+  # check for duplicates in groups
+  for (i in names(group_var_labels)) {
+    if (any(duplicated(data_successful_matches[[i]]))) {
+      stop("Duplicate values in group: ", i)
     }
   }
 
-  data_matched <- data_successfulmatches %>%
+  data_matched <- data_successful_matches %>%
     tidyr::pivot_longer(
-      cols = names(group_labels),
-      names_to = "treated_tmp",
-      values_to = id_var
+      cols = names(group_var_labels),
+      names_to = "group",
+      values_to = "id"
     ) %>%
-    dplyr::transmute(
-      !!id_sym,
-      match_id, #TODO create unique match_id, currently only unique within a trial
-      !!treated_sym := treated_tmp == names(group_labels)[2],
-      trialstart,
-      controlistreated
-    )
+    # because match_id only unique within trial_start
+    dplyr::group_by(trial_start, match_id) %>%
+    dplyr::mutate(match_id = dplyr::cur_group_id()) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(across(
+      group,
+      ~factor(.x, levels = names(group_var_labels))
+      )) %>%
+    dplyr::select(
+      id, match_id, group, trial_start,
+      any_of("untreated_is_treated_time")
+      ) %>%
+    tibble::new_tibble(class = "seqtrial_matched_fmt")
 
-  out <- list(
-    "data_matched" = data_matched,
-    variable_names = list(
-      "id_var" = id_var,
-      "time_var" = time_var,
-      "treated_var" = treated_var,
-      "matching_vars" = matching_vars
-    ),
-    "data" = data
-  )
-
-  class(out) <- "seqtrial"
-
-  return(out)
+  return(data_matched)
 
 }
+
+
+# TODO create function to summarise matching success
+# TODO create function to assess balance across matched groups
+# TODO create function to add time-to-event data to a seqtrial_matched_fmt object
