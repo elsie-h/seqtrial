@@ -18,4 +18,5 @@ Imports:
     magrittr,
     purrr,
     rlang,
-    tidyr
+    tidyr,
+    tibble
