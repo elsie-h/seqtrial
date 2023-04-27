@@ -14,7 +14,7 @@ rbern <- function (n, p = 0.5) {
 }
 
 set.seed(8765)
-dat <- tibble(id = 1:500) %>%
+dummydata0 <- tibble(id = 1:500) %>%
   mutate(
     # max months follow-up for each individual
     n = 24,
@@ -65,12 +65,14 @@ dat <- tibble(id = 1:500) %>%
   ) %>%
   group_by(id) %>%
   mutate(across(biomarker, ~.x*cumprod(biomarker_mult2))) %>%
-  ungroup() %>%
+  ungroup()
+
+dummydata1 <- dummydata0 %>%
   # TODO
   # for now, survival times unrelated to characteristics
   # update this later to introduce associations
   left_join(
-    dat %>%
+    dummydata0 %>%
       distinct(id) %>%
       mutate(survtime = ceiling(rweibull(n=nrow(.), shape=5, scale=24))),
     by = "id"
@@ -84,16 +86,16 @@ dat <- tibble(id = 1:500) %>%
 #   geom_line(alpha = 0.2) +
 #   facet_grid(rows = "treated")
 
-dummydata <- dat %>%
+dummydata <- dummydata1 %>%
   transmute(
-    id, time, sex,
+    id, time, sex, age, biomarker,
     age_grp = cut(
       age,
       breaks = c(18, seq(40,100,20)),
       include.lowest = TRUE,
       right = FALSE
     ),
-    biomarker = cut(
+    biomarker_grp = cut(
       biomarker,
       breaks = c(200, seq(600, 1200, 200), 2000),
       include.lowest = TRUE,
