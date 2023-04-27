@@ -12,8 +12,10 @@ A data frame with  10,753 rows and 8 columns:
 \item{id}{Patient id}
 \item{time}{Time since study baseline in months}
 \item{sex}{Patient's sex (measured at baseline)}
-\item{age_grp}{Patient's age group (measured at baseline)}
+\item{age}{Patient's age (measured at baseline)}
 \item{biomarker}{Patient's biomarker level (measured at "time")}
+\item{age_grp}{Patient's age group (measured at baseline)}
+\item{biomarker_grp}{Patient's biomarker level group (measured at "time")}
 \item{treated}{Whether the patient is treated}
 \item{treatment}{Which treatment}
 \item{death}{Had the patient died by "time"}

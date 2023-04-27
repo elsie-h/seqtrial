@@ -20,3 +20,4 @@ Imports:
     rlang,
     tidyr,
     tibble
+LazyData: true

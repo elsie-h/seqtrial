@@ -12,6 +12,8 @@ seqtrial_formatter(
   treatment_vals = NULL,
   matching_vars,
   other_vars = NULL,
+  censor_vars = NULL,
+  outcome_vars,
   data
 )
 }
@@ -20,17 +22,21 @@ seqtrial_formatter(
 
 \item{time_var}{The time variable given as a character vector. Must be a numeric variable.}
 
-\item{treated_var}{The variable indicating the time of treatment initiation. Must be coercible to 0 / 1.}
+\item{treated_var}{The variable indicating the time of treatment initiation. Must be coercible to 0 / 1. Takes the value 0 until the time of treatment initiation, and 1 on and after the time of treatment initiation.}
 
 \item{treatment_var}{The treatment variable given as a character vector. Must be NA before treatment initiated. Must be NULL if comparison is treated / untreated.}
 
-\item{matching_vars}{The matching variables given as a character vector. Must be a factor variable.}
+\item{treatment_vals}{Values to define the treatment groups in a "treatment A vs treatment B" comparison. Must match the nonmissing values in treated_var. Must be NULL if treatment_var is NULL.}
+
+\item{matching_vars}{The matching variables given as a character vector. Must be factor variables (this will be updated when matching strategies extended).}
 
 \item{other_vars}{Other variables that may be used as covariates in the model or to assess the balance after matching. Can be NULL.}
 
-\item{data}{A data frame in which these variables exist. All variables must be in this data frame.}
+\item{censor_vars}{Censoring variables given as a character vector. Variables must be coercible to 0 / 1, taking the value 0 before the censoring event and 1 at the time of the event. Only the first occurrence of the event will be used, so it does not matter whether the value returns to 0 after the event, or remains at 1.}
 
-\item{treatment_val}{A value to define the treated group. Must be one of the unique values in treated_var. Must be NULL if comparison is treated / untreated.}
+\item{outcome_vars}{Outcome variables given as a character vector. Must specify at least one outcome variable. Variables must be coercible to 0 / 1, taking the value 0 before the outcome event and 1 at the time of the event. Only the first occurrence of the event will be used, so it does not matter whether the value returns to 0 after the event, or remains at 1.}
+
+\item{data}{A data frame in which these variables exist. All variables must be in this data frame.}
 }
 \value{
 A data frame with class "seqtrial_fmt"
@@ -48,6 +54,8 @@ time_var = "time",
 treated_var = "treated",
 matching_vars = c("age_grp", "biomarker", "sex"),
 other_vars = NULL,
+censor_vars = NULL,
+outcome_vars = death,
 data = dummydata
 )
 
