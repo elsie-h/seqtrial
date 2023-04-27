@@ -22,7 +22,7 @@
 #' id_var ="id",
 #' time_var = "time",
 #' treated_var = "treated",
-#' matching_vars = c("age_grp", "biomarker", "sex"),
+#' matching_vars = c("age_grp", "biomarker_grp", "sex"),
 #' other_vars = NULL,
 #' censor_vars = NULL,
 #' outcome_vars = death,
@@ -36,7 +36,7 @@
 #' treated_var = "treated",
 #' treatment_var = "treatment",
 #' treatment_vals = c("A", "B"),
-#' matching_vars = c("age_grp", "biomarker", "sex"),
+#' matching_vars = c("age_grp", "biomarker_grp", "sex"),
 #' other_vars = NULL,
 #' data = dummydata
 #' )
@@ -266,7 +266,7 @@ treatment_initiation_times <- function(data) {
 #' id_var ="id",
 #' time_var = "time",
 #' treated_var = "treated",
-#' matching_vars = c("age_grp", "biomarker", "sex"),
+#' matching_vars = c("age_grp", "biomarker_grp", "sex"),
 #' other_vars = NULL,
 #' data = dummydata
 #' )
@@ -279,7 +279,7 @@ treatment_initiation_times <- function(data) {
 #' treated_var = "treated",
 #' treatment_var = "treatment",
 #' treatment_vals = c("A", "B"),
-#' matching_vars = c("age_grp", "biomarker", "sex"),
+#' matching_vars = c("age_grp", "biomarker_grp", "sex"),
 #' other_vars = NULL,
 #' data = dummydata
 #' )
