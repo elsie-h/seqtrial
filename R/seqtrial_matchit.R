@@ -237,7 +237,7 @@ treatment_initiation_times <- function(data) {
     vars <- c(vars, "treatment")
   }
 
-  data_reatment_initiation_times <- data %>%
+  data_treatment_initiation_times <- data %>%
     dplyr::filter(treated == 1) %>%
     dplyr::arrange(id, time) %>%
     dplyr::group_by(id) %>%
@@ -247,7 +247,7 @@ treatment_initiation_times <- function(data) {
     dplyr::select(all_of(vars)) %>%
     dplyr::arrange(time)
 
-  return(data_reatment_initiation_times)
+  return(data_treatment_initiation_times)
 
 }
 
