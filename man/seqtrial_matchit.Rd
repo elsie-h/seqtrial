@@ -4,31 +4,41 @@
 \alias{seqtrial_matchit}
 \title{Perform matching according to the sequential trial approach for target trial emulation}
 \usage{
-seqtrial_matchit(id_var, time_var, treated_var, matching_vars, data)
+seqtrial_matchit(data)
 }
 \arguments{
-\item{id_var}{A variable given as a character vector.}
-
-\item{time_var}{A variable given as a character vector.}
-
-\item{treated_var}{A variable given as a character vector.}
-
-\item{matching_vars}{A variable given as a character vector.}
-
-\item{data}{A data frame in which these variables exist. All variables must be in this data frame.}
+\item{data}{A data frame with class "seqtrial_fmt".}
 }
 \value{
-A list
+A data frame with class "seqtrial_matched_fmt"
 }
 \description{
 Perform matching according to the sequential trial approach for target trial emulation
 }
 \examples{
-seqtrial_example <- seqtrial_matchit(
+data("dummydata")
+
+# for treated vs untreated comparison
+data_seqtrial_tu <- seqtrial_formatter(
 id_var ="id",
 time_var = "time",
 treated_var = "treated",
 matching_vars = c("age_grp", "biomarker", "sex"),
+other_vars = NULL,
 data = dummydata
 )
+data_seqtrial_tu_matched <- seqtrial_matchit(data_seqtrial_tu)
+
+# for treatment A vs treatment B comparison
+data_seqtrial_ab <- seqtrial_formatter(
+id_var ="id",
+time_var = "time",
+treated_var = "treated",
+treatment_var = "treatment",
+treatment_vals = c("A", "B"),
+matching_vars = c("age_grp", "biomarker", "sex"),
+other_vars = NULL,
+data = dummydata
+)
+data_seqtrial_ab_matched <- seqtrial_matchit(data_seqtrial_ab)
 }
