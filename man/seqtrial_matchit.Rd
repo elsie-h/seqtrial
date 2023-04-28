@@ -4,13 +4,22 @@
 \alias{seqtrial_matchit}
 \title{Perform matching according to the sequential trial approach for target trial emulation}
 \usage{
-seqtrial_matchit(data)
+seqtrial_matchit(seqtrial_data, formula, ...)
 }
 \arguments{
-\item{data}{A data frame with class "seqtrial_fmt".}
+\item{seqtrial_data}{A data frame with class "seqtrial_fmt".}
+
+\item{formula}{a two-sided \code{\link{formula}} object containing the treatment and
+covariates to be used in creating the distance measure used in the matching.
+This formula will be supplied to the functions that estimate the distance
+measure. The formula should be specified as \code{A ~ X1 + X2 + ...} where
+\code{A} represents the treatment variable and \code{X1} and \code{X2} are
+covariates.}
+
+\item{\dots}{additional arguments passed to \code{\link{matchit}}}
 }
 \value{
-A data frame with class "seqtrial_matched_fmt"
+A data frame with class "seqtrial_matched"
 }
 \description{
 Perform matching according to the sequential trial approach for target trial emulation
@@ -23,11 +32,20 @@ data_seqtrial_tu <- seqtrial_formatter(
 id_var ="id",
 time_var = "time",
 treated_var = "treated",
-matching_vars = c("age_grp", "biomarker", "sex"),
-other_vars = NULL,
+outcome_vars = "death",
+keep_vars = c("age_grp", "biomarker_grp", "sex"),
 data = dummydata
 )
-data_seqtrial_tu_matched <- seqtrial_matchit(data_seqtrial_tu)
+# exact 1:1 matching on age_grp, biomarker_grp and sex
+data_seqtrial_tu_matched <- seqtrial_matchit(
+data_seqtrial_tu,
+formula = treated ~ 1,
+exact = c("age_grp", "biomarker_grp", "sex"),
+replace=FALSE,
+ratio=1,
+m.order = "random",
+estimand = "ATT",
+)
 
 # for treatment A vs treatment B comparison
 data_seqtrial_ab <- seqtrial_formatter(
@@ -36,9 +54,18 @@ time_var = "time",
 treated_var = "treated",
 treatment_var = "treatment",
 treatment_vals = c("A", "B"),
-matching_vars = c("age_grp", "biomarker", "sex"),
-other_vars = NULL,
+outcome_vars = "death",
+keep_vars = c("age_grp", "biomarker_grp", "sex"),
 data = dummydata
 )
-data_seqtrial_ab_matched <- seqtrial_matchit(data_seqtrial_ab)
+# exact 1:1 matching on age_grp, biomarker_grp and sex
+data_seqtrial_ab_matched <- seqtrial_matchit(
+data_seqtrial_ab,
+formula = treatment ~ 1,
+exact = c("age_grp", "biomarker_grp", "sex"),
+replace=FALSE,
+ratio=1,
+m.order = "random",
+estimand = "ATT",
+)
 }

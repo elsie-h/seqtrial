@@ -10,10 +10,9 @@ seqtrial_formatter(
   treated_var,
   treatment_var = NULL,
   treatment_vals = NULL,
-  matching_vars,
-  other_vars = NULL,
+  outcome_vars = NULL,
   censor_vars = NULL,
-  outcome_vars,
+  keep_vars,
   data
 )
 }
@@ -28,13 +27,11 @@ seqtrial_formatter(
 
 \item{treatment_vals}{Values to define the treatment groups in a "treatment A vs treatment B" comparison. Must match the nonmissing values in treated_var. Must be NULL if treatment_var is NULL.}
 
-\item{matching_vars}{The matching variables given as a character vector. Must be factor variables (this will be updated when matching strategies extended).}
-
-\item{other_vars}{Other variables that may be used as covariates in the model or to assess the balance after matching. Can be NULL.}
+\item{outcome_vars}{Outcome variables given as a character vector. Must specify at least one outcome variable. Variables must be coercible to 0 / 1, taking the value 0 before the outcome event and 1 at the time of the event. Only the first occurrence of the event will be used, so it does not matter whether the value returns to 0 after the event, or remains at 1.}
 
 \item{censor_vars}{Censoring variables given as a character vector. Variables must be coercible to 0 / 1, taking the value 0 before the censoring event and 1 at the time of the event. Only the first occurrence of the event will be used, so it does not matter whether the value returns to 0 after the event, or remains at 1.}
 
-\item{outcome_vars}{Outcome variables given as a character vector. Must specify at least one outcome variable. Variables must be coercible to 0 / 1, taking the value 0 before the outcome event and 1 at the time of the event. Only the first occurrence of the event will be used, so it does not matter whether the value returns to 0 after the event, or remains at 1.}
+\item{keep_vars}{The variables to keep in the dataset given as a character vector. Any variables used in matching, assessing balance post-matching or used as covariates in the model should be specified here. At least one variable must be specified.}
 
 \item{data}{A data frame in which these variables exist. All variables must be in this data frame.}
 }
@@ -52,10 +49,9 @@ data_seqtrial_tu <- seqtrial_formatter(
 id_var ="id",
 time_var = "time",
 treated_var = "treated",
-matching_vars = c("age_grp", "biomarker", "sex"),
-other_vars = NULL,
-censor_vars = NULL,
 outcome_vars = death,
+censor_vars = NULL,
+keep_vars = c("age_grp", "biomarker_grp", "sex"),
 data = dummydata
 )
 
@@ -66,8 +62,7 @@ time_var = "time",
 treated_var = "treated",
 treatment_var = "treatment",
 treatment_vals = c("A", "B"),
-matching_vars = c("age_grp", "biomarker", "sex"),
-other_vars = NULL,
+keep_vars = c("age_grp", "biomarker_grp", "sex"),
 data = dummydata
 )
 }
