@@ -14,7 +14,7 @@ rbern <- function (n, p = 0.5) {
 }
 
 set.seed(8765)
-dummydata0 <- tibble(id = 1:500) %>%
+dummydata0 <- tibble(id = 101:600) %>%
   mutate(
     # max months follow-up for each individual
     n = 24,
