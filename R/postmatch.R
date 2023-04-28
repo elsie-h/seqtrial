@@ -1,3 +1,5 @@
+# TODO needs updating
+
 #' Calculate number of treated people who were matched per trial
 #'
 #' @param seqtrial_obj  An object with class seqtrial
